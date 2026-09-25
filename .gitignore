@@ -1,0 +1,8 @@
+build/node_modules/
+.firebase/
+__pycache__/
+*.pyc
+
+# test output and the 26 MB file run_photos.py needs (make it with the command in README)
+test/shots/
+test/too-big.jpg
