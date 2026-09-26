@@ -1,0 +1,104 @@
+rules_version = '2';
+
+// WHO CAN DO WHAT
+// - Anyone who signs in with a Google account can open the tracker and SEE everyone's plan, profiles and logs.
+// - Each person can only CHANGE their own profile and logs (one Google account = one profile).
+// - Admins (listed below) can change anyone's profile and logs, remove members and edit the plan.
+// - v32: anyone with a profile can change a day of the shared plan (plan_days): add an exercise, change its sets,
+//   move a session, catch one up, change exercises. The weeks and the programme (plan_weeks, plan_meta) stay admin-only.
+// - v32: body check-ins (body/<uid>) and a person's own exercises (myex/<uid>) are read by everyone signed in and
+//   changed only by that person (or an admin).
+// - Training together: a person's log for one day may also be changed by someone in the same group that day
+//   (see togetherAllows below), unless they left the group or switched off "Others can add me".
+// To add another admin: add their Gmail below AND to TRACKER_ADMINS in public/config.js, then deploy again.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function admins() {
+      return ['admin@example.com'];
+    }
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() in admins();
+    }
+
+    function isTrackerCollection(col) {
+      return col in ['plan_days', 'plan_weeks', 'plan_meta', 'profiles', 'logs', 'bench', 'weekly', 'niggles', 'body', 'myex'];
+    }
+
+    // Profiles, benchmarks and niggles are stored under the person's account id;
+    // logs and weekly notes under "<account id>_<date or week>".
+    function ownsDoc(col, docId) {
+      return signedIn() && (
+        (col in ['profiles', 'bench', 'niggles', 'body', 'myex'] && docId == request.auth.uid)
+        || (col in ['logs', 'weekly'] && docId.split('_')[0] == request.auth.uid)
+      );
+    }
+
+    // v32: someone who has set up a profile may change the days of the shared plan.
+    function memberPlanDay(col) {
+      return signedIn() && col == 'plan_days'
+        && exists(/databases/$(database)/documents/profiles/$(request.auth.uid));
+    }
+
+    function validShape() {
+      return request.resource.data.keys().hasOnly(['j'])
+        && request.resource.data.j is string
+        && request.resource.data.j.size() < 200000;
+    }
+
+    // Training together: this account may change <owner>'s log for <date> if its own "together" doc for that day
+    // says it's in group g, g's maker lists <owner> in the group, and <owner> hasn't left g, isn't in another group that
+    // day and hasn't switched off "Others can add me" (their "<uid>_prefs" doc).
+    function togetherAllows(col, docId) {
+      return signedIn() && col == 'logs'
+        && exists(/databases/$(database)/documents/together/$(request.auth.uid + '_' + docId.split('_')[1]))
+        && togetherMine(docId.split('_')[0], docId.split('_')[1],
+             get(/databases/$(database)/documents/together/$(request.auth.uid + '_' + docId.split('_')[1])).data);
+    }
+    function togetherMine(owner, date, mine) {
+      return mine['in'] == true && mine.g is string && mine.g.size() > 0
+        && exists(/databases/$(database)/documents/together/$(mine.g.split(':')[0] + '_' + date))
+        && togetherMaker(owner, date, mine.g, get(/databases/$(database)/documents/together/$(mine.g.split(':')[0] + '_' + date)).data);
+    }
+    function togetherMaker(owner, date, g, maker) {
+      return maker['in'] == true && maker.g == g && owner in maker.group
+        && togetherOwnerOk(g, owner, date)
+        && !(exists(/databases/$(database)/documents/together/$(owner + '_prefs'))
+             && get(/databases/$(database)/documents/together/$(owner + '_prefs')).data['in'] == false);
+    }
+    function togetherOwnerOk(g, owner, date) {
+      return !exists(/databases/$(database)/documents/together/$(owner + '_' + date))
+        || (get(/databases/$(database)/documents/together/$(owner + '_' + date)).data.g == g
+            ? get(/databases/$(database)/documents/together/$(owner + '_' + date)).data['in'] == true
+            : get(/databases/$(database)/documents/together/$(owner + '_' + date)).data['in'] == false);
+    }
+
+    match /{col}/{docId} {
+      allow read: if signedIn() && isTrackerCollection(col);
+      allow create, update: if isTrackerCollection(col) && validShape() && (isAdmin() || ownsDoc(col, docId) || togetherAllows(col, docId) || memberPlanDay(col));
+      allow delete: if isTrackerCollection(col) && isAdmin();
+    }
+
+    // One doc per person per day: who they're training with and who may fill in their log that day
+    match /together/{docId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn()
+        && (docId.split('_')[0] == request.auth.uid || isAdmin())
+        && request.resource.data.keys().hasOnly(['j', 'allow', 'g', 'in', 'group'])
+        && request.resource.data.j is string && request.resource.data.j.size() < 20000
+        && request.resource.data.allow is list && request.resource.data.allow.size() <= 30
+        && request.resource.data.g is string && request.resource.data.g.size() < 100
+        && request.resource.data['in'] is bool
+        && request.resource.data.group is list && request.resource.data.group.size() <= 30;
+      allow delete: if isAdmin();
+    }
+  }
+}

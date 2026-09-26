@@ -1,0 +1,31 @@
+rules_version = '2';
+
+// PHOTOS
+// - Anyone signed in to the tracker can view photos.
+// - People can only add or delete photos in their own folder (photos/<their account id>/...).
+// - Admins (same list as firestore.rules) can add or delete anyone's.
+// - Images only, up to 25 MB each (full-quality phone photos are usually 2–8 MB).
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function admins() {
+      return ['admin@example.com'];
+    }
+
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() in admins();
+    }
+
+    match /photos/{uid}/{file} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+        && (request.auth.uid == uid || isAdmin())
+        && request.resource.size < 25 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null && (request.auth.uid == uid || isAdmin());
+    }
+  }
+}
