@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HYROX Tracker Setup</title>
+<meta name="description" content="Step-by-step guide to put the HYROX Training Tracker on Firebase for free.">
+<style>
+:root{
+  --ground:#EDEFEA; --surface:#FFFFFF; --surface-2:#F5F6F2; --ink:#14171A; --ink-2:#394048; --muted:#5E656D;
+  --line:#D8DCD4; --accent:#C24D17; --accent-tint:#FBEBE2; --good:#1C7A4A; --good-tint:#E1F1E6; --warn-tint:#FAEED8;
+  --code:#1C2126; --code-ink:#EEF0EC;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0C0F11; --surface:#161A1E; --surface-2:#1C2126; --ink:#EEF0EC; --ink-2:#C9CDC7; --muted:#9AA2A9;
+    --line:#272E34; --accent:#F08C57; --accent-tint:#3A2419; --good:#4CC287; --good-tint:#14301F; --warn-tint:#332713;
+    --code:#0A0D0F; --code-ink:#EEF0EC;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0C0F11; --surface:#161A1E; --surface-2:#1C2126; --ink:#EEF0EC; --ink-2:#C9CDC7; --muted:#9AA2A9;
+  --line:#272E34; --accent:#F08C57; --accent-tint:#3A2419; --good:#4CC287; --good-tint:#14301F; --warn-tint:#332713;
+  --code:#0A0D0F; --code-ink:#EEF0EC;
+}
+*{box-sizing:border-box}
+html,body{background:var(--ground)}
+body{margin:0;color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:24px 16px 64px}
+.wrap{max-width:760px;margin:0 auto}
+h1{font-size:clamp(30px,6vw,44px);line-height:1.05;margin:0 0 10px;letter-spacing:-.01em}
+h2{font-size:21px;margin:0;line-height:1.25}
+p{margin:0 0 10px}
+.lead{font-size:18px;color:var(--ink-2);max-width:62ch}
+.hero{background:#14171A;color:#fff;border-radius:16px;border-top:8px solid var(--accent);padding:22px 20px;margin-bottom:22px}
+.hero h1{color:#fff}
+.hero p{color:rgba(255,255,255,.8);margin:0}
+.facts{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.facts span{background:rgba(255,255,255,.12);border-radius:999px;padding:4px 12px;font-size:14px;font-weight:600}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px 18px 12px;margin:14px 0}
+.step{display:grid;grid-template-columns:40px minmax(0,1fr);gap:14px}
+.step>div{min-width:0}
+.num{width:40px;height:40px;border-radius:12px;background:var(--accent);color:#fff;font-weight:800;font-size:20px;display:grid;place-items:center}
+.step h2{margin:6px 0 10px}
+ol,ul{margin:0 0 10px;padding-left:22px}
+li{margin:4px 0}
+b{font-weight:650}
+.ui{background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:0 6px;font-weight:600;white-space:nowrap}
+a{color:var(--accent);font-weight:600}
+.cmd{display:flex;align-items:stretch;gap:8px;margin:8px 0 12px}
+.cmd code{flex:1;min-width:0;background:var(--code);color:var(--code-ink);border-radius:10px;padding:12px 14px;font:15px/1.4 ui-monospace,Menlo,Consolas,monospace;overflow-x:auto;white-space:pre}
+.cmd button{flex:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:0 14px;font:600 14px system-ui,sans-serif;cursor:pointer;min-height:44px}
+code.inline{background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font:14px ui-monospace,Menlo,Consolas,monospace}
+.note{background:var(--surface-2);border-radius:10px;padding:10px 12px;font-size:15px;color:var(--ink-2);margin:8px 0 10px}
+.note.warn{background:var(--warn-tint)}
+.note.good{background:var(--good-tint)}
+.idbox{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 12px}
+.idbox input{flex:1;min-width:200px;min-height:44px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);padding:0 12px;font:16px ui-monospace,Menlo,Consolas,monospace}
+.files{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 14px;font-size:15px}
+.files code{font:14px ui-monospace,Menlo,Consolas,monospace;font-weight:600;overflow-wrap:anywhere}
+@media (max-width:520px){.files{grid-template-columns:minmax(0,1fr)}.files span{margin-bottom:6px}}
+details{border-top:1px solid var(--line);padding:10px 0}
+details:first-of-type{border-top:0}
+summary{cursor:pointer;font-weight:650;min-height:32px}
+.muted{color:var(--muted)}
+@media (max-width:520px){.step{grid-template-columns:minmax(0,1fr)}.num{width:34px;height:34px;font-size:17px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>Put your HYROX Tracker on Firebase</h1>
+  <p>After these steps you'll have your own free web address. Anyone you send it to signs in with Google and gets their own profile.</p>
+  <div class="facts"><span>About 20 minutes</span><span>₹0, no card needed</span><span>Needs a computer once</span></div>
+</header>
+
+<section class="card">
+  <h2>What's in this folder</h2>
+  <div class="files" style="margin-top:10px">
+    <code>public/</code><span>The tracker itself: plan, logging, charts, timers. You don't need to open anything in here.</span>
+    <code>firestore.rules</code><span>The database rules: anyone who signs in with Google can see the tracker, people can only change their own logs and your account is the admin. Leave it as it is.</span>
+    <code>redirect/</code><span>A one-page site that forwards the old address to hyroxtraining.web.app. Leave it as it is.</span>
+    <code>storage.rules</code><span>Who can add and delete photos (same as logs: your own and the admin can do anyone's). Leave it as it is.</span>
+    <code>firebase.json</code><span>Tells Firebase what to publish. Leave it as it is.</span>
+  </div>
+</section>
+
+<section class="card step"><div class="num">1</div><div>
+  <h2>Create a Firebase project</h2>
+  <ol>
+    <li>Open <a href="https://console.firebase.google.com" target="_blank" rel="noopener">console.firebase.google.com</a> and sign in with your Google account.</li>
+    <li>Click <span class="ui">Create a project</span> (or <span class="ui">Get started</span>) and give it a name, for example <b>vinay-hyrox</b>.</li>
+    <li>Under the name you'll see a <b>project ID</b>. It becomes your web address: <b>project-id.web.app</b>. Click the pencil next to it if you want a different one.</li>
+    <li>Turn <b>Google Analytics</b> off (the tracker doesn't use it), then click <span class="ui">Create project</span>.</li>
+  </ol>
+  <p>Type your project ID here and the commands in step 6 will fill it in for you:</p>
+  <div class="idbox"><input id="pid" placeholder="e.g. vinay-hyrox" autocomplete="off" spellcheck="false" aria-label="Your Firebase project ID"></div>
+  <div class="note">You stay on the free <b>Spark</b> plan. If Firebase ever suggests upgrading to Blaze, you can ignore it; nothing here needs it.</div>
+</div></section>
+
+<section class="card step"><div class="num">2</div><div>
+  <h2>Turn on "Sign in with Google"</h2>
+  <ol>
+    <li>In the left menu, open <span class="ui">Build</span> → <span class="ui">Authentication</span> → <span class="ui">Get started</span>.</li>
+    <li>On the <span class="ui">Sign-in method</span> tab, click <span class="ui">Google</span>, switch it to <b>Enable</b>, pick your email as the support email and click <span class="ui">Save</span>.</li>
+  </ol>
+</div></section>
+
+<section class="card step"><div class="num">3</div><div>
+  <h2>Create the database</h2>
+  <ol>
+    <li>Open <span class="ui">Build</span> → <span class="ui">Firestore Database</span> → <span class="ui">Create database</span>.</li>
+    <li>If it asks for an edition, choose <b>Standard</b>.</li>
+    <li>Location: choose <b>asia-south1 (Mumbai)</b>. It's closest to you and it can't be changed later.</li>
+    <li>Choose <b>Start in production mode</b> and click <span class="ui">Create</span>. The tracker's own rules replace the default ones in step 6.</li>
+  </ol>
+</div></section>
+
+<section class="card step"><div class="num">4</div><div>
+  <h2>Register the web app</h2>
+  <ol>
+    <li>Go back to <span class="ui">Project Overview</span> (the house icon at the top left), click <span class="ui">+ Add app</span> and choose the <b>&lt;/&gt;</b> (Web) icon.</li>
+    <li>Nickname: <b>HYROX Tracker</b>. Tick <b>Also set up Firebase Hosting for this app</b>, then click <span class="ui">Register app</span>.</li>
+    <li>Click <span class="ui">Next</span> through the remaining screens and then <span class="ui">Continue to console</span>. <b>You don't need to copy anything</b>: the tracker picks up these settings automatically once it's published.</li>
+  </ol>
+</div></section>
+
+<section class="card step"><div class="num">5</div><div>
+  <h2>Install Node.js (one time)</h2>
+  <p>Firebase publishes websites with a small command-line tool that runs on Node.js.</p>
+  <ol>
+    <li>Go to <a href="https://nodejs.org" target="_blank" rel="noopener">nodejs.org</a>, download the <b>LTS</b> version and install it, keeping all the default options.</li>
+  </ol>
+</div></section>
+
+<section class="card step"><div class="num">6</div><div>
+  <h2>Publish the tracker</h2>
+  <p><b>Open a command window in this folder</b> (the folder that contains <code class="inline">firebase.json</code>):</p>
+  <ul>
+    <li><b>Windows:</b> open the folder in File Explorer, click the address bar at the top, type <code class="inline">cmd</code> and press Enter.</li>
+    <li><b>Mac:</b> open the <b>Terminal</b> app, type <code class="inline">cd </code> (with a space after it), drag this folder into the Terminal window and press Enter.</li>
+  </ul>
+  <p style="margin-top:12px"><b>Log in to Firebase.</b> Paste this command and press Enter. If it asks <i>Ok to proceed?</i> type <code class="inline">y</code>. A browser window opens: sign in with the same Google account and click <span class="ui">Allow</span>.</p>
+  <div class="cmd"><code>npx firebase-tools login</code><button data-copy>Copy</button></div>
+  <p><b>Publish.</b> This uploads the tracker and your access rules together:</p>
+  <div class="cmd"><code id="deploy">npx firebase-tools deploy --project <span class="pidv">YOUR-PROJECT-ID</span></code><button data-copy>Copy</button></div>
+  <div class="note good">When it finishes you'll see <b>Hosting URL: https://<span class="pidv">your-project-id</span>.web.app</b>. That's your tracker's address.</div>
+  <div class="note">Can't remember the project ID? In the Firebase console, click the gear icon next to <span class="ui">Project Overview</span> → <span class="ui">Project settings</span>.</div>
+  <div class="note warn"><b>Updating to v32?</b> Use this same command (not "hosting only"): v32 also changes the access rules, so that members can add exercises and change sets in the shared plan and so that body check-ins and your own exercises can be saved. Until the new rules are published, those saves are refused.</div>
+</div></section>
+
+<section class="card step"><div class="num">7</div><div>
+  <h2>Sign in and set up your profile</h2>
+  <ol>
+    <li>Open <b>https://<span class="pidv">your-project-id</span>.web.app</b> and click <span class="ui">Sign in with Google</span>.</li>
+    <li>The first time, it asks you to <b>set up your profile</b>: your name, colour, <b>your race</b> (Singles, Doubles or Relay and your division) and race plan. Click <span class="ui">Start tracking</span>.</li>
+    <li>That's it. From now on, signing in with the same Google account on any phone or PC opens your own log straight away.</li>
+  </ol>
+  <div class="note good">The <b>admin</b> is admin@example.com, an account that doesn't train, so it has no log of its own. Signed in with it, you'll see an <b>Admin</b> badge at the top. Tap the name there to pick whose log to open and change, or to edit the plan.</div>
+</div></section>
+
+<section class="card step"><div class="num">8</div><div>
+  <h2>Put it on both phones</h2>
+  <ol>
+    <li>Send your training partner (or anyone else training with you) the link. They sign in with their Google account and set up their profile once.</li>
+    <li><b>iPhone:</b> open the link in <b>Safari</b> → Share button → <span class="ui">Add to Home Screen</span>. Open the new icon and sign in once more (home-screen apps on iPhone keep their own sign-in).</li>
+    <li><b>Android:</b> open the link in <b>Chrome</b> → ⋮ menu → <span class="ui">Add to Home screen</span> or <span class="ui">Install app</span>.</li>
+  </ol>
+  <div class="note">Everyone who signs in can <b>see</b> everyone's logs (that's how Together and Progress compare you). Each person can only <b>change</b> their own. Only you, as admin, can change other people's logs, remove members or edit the plan.</div>
+  <div class="note">The tracker now opens even with no signal at the gym. Anything you log waits on the phone and syncs when you're back online.</div>
+</div></section>
+
+<section class="card" id="address">
+  <h2 style="margin-bottom:6px">Your address: hyroxtraining.web.app</h2>
+  <p>The tracker is published at <b>https://hyroxtraining.web.app</b>. The original <b>https://<span class="pidv">your-project-id</span>.web.app</b> can't be deleted, so it now forwards every visit to the new address.</p>
+  <ol>
+    <li>In the Firebase console open <span class="ui">Hosting &amp; Serverless</span> → <span class="ui">Hosting</span>, scroll down to <span class="ui">Add another site</span>, type <b>hyroxtraining</b> and add it. If Firebase says the name is taken, pick another and put it in place of <b>hyroxtraining</b> in <code class="inline">firebase.json</code>, <code class="inline">public/index.html</code> and <code class="inline">redirect/</code>.</li>
+    <li>Open <span class="ui">Authentication</span> → <span class="ui">Settings</span> → <span class="ui">Authorized domains</span>. If <b>hyroxtraining.web.app</b> isn't listed, click <span class="ui">Add domain</span> and add it. Without this, Google sign-in on the new address is refused.</li>
+    <li>Publish as usual. The command updates both addresses at once.</li>
+    <li>Open https://hyroxtraining.web.app, sign in once and add it to your home screen again (then remove the old icon).</li>
+  </ol>
+  <div class="note">Your logs, profiles and photos don't move: it's the same database, just a new address.</div>
+</section>
+
+<section class="card" id="photos">
+  <h2 style="margin-bottom:6px">Photos at full quality (optional)</h2>
+  <p>Photo storage needs Firebase's pay-as-you-go <b>Blaze</b> plan. At your usage it should stay within the free allowance (5 GB stored, 100 GB of downloads a month), so ₹0, but Google asks for a card and there's no automatic spending cap, so you set an alert.</p>
+  <ol>
+    <li><b>Upgrade:</b> in the Firebase console, click <span class="ui">Upgrade</span> at the bottom left (next to "Spark"), choose <b>Blaze</b> and create a billing account with your card. Google may verify the card with an OTP or a small temporary charge.</li>
+    <li><b>Set a budget alert:</b> when the upgrade offers a budget, enter <b>₹100</b>. If you skipped it: <a href="https://console.cloud.google.com/billing" target="_blank" rel="noopener">console.cloud.google.com/billing</a> → your billing account → <span class="ui">Budgets &amp; alerts</span> → <span class="ui">Create budget</span> → ₹100, alerts at 50%, 90% and 100%. You'll get an email if costs ever start.</li>
+    <li><b>Create photo storage:</b> in the left menu, open <span class="ui">Databases &amp; Storage</span> → <span class="ui">Storage</span> → <span class="ui">Get started</span>. For location pick <b>US-CENTRAL1</b> (it's marked no-cost; Mumbai has no free allowance). Choose <b>Start in production mode</b> and click <span class="ui">Create</span>.</li>
+    <li><b>Publish again</b> with the usual command, which now also uploads the photo rules:</li>
+  </ol>
+  <div class="cmd"><code>npx firebase-tools deploy --project <span class="pidv">YOUR-PROJECT-ID</span></code><button data-copy>Copy</button></div>
+  <div class="note good">Then on any session, scroll to <b>Finish session</b> → <span class="ui">Add photo</span>. The original is kept at full quality; the app also saves a small preview so browsing stays fast. Tap a photo to see it full size.</div>
+  <div class="note warn">Haven't set up photo storage yet but want to publish other updates? Use <code class="inline">npx firebase-tools deploy --only hosting,firestore --project <span class="pidv">YOUR-PROJECT-ID</span></code>. The normal command stops with an error until Storage exists.</div>
+</section>
+
+<section class="card">
+  <h2 style="margin-bottom:6px">Later on</h2>
+  <details><summary>Adding someone else</summary>
+    <p>Just send them the link. They sign in with Google and set up their profile once. One Google account is one profile.</p></details>
+  <details><summary>Making someone else an admin</summary>
+    <p>Add their Gmail address in two places: the <code class="inline">admins()</code> list in <code class="inline">firestore.rules</code> and <code class="inline">TRACKER_ADMINS</code> in <code class="inline">public/config.js</code>. Then run the publish command from step 6 again.</p></details>
+  <details><summary>Getting an updated version of the tracker</summary>
+    <p>Replace the files in the <code class="inline">public</code> folder with the new ones and run the publish command from step 6 again. Your logs live in the database, so they aren't touched.</p></details>
+  <details><summary>Keeping your own copy of the data</summary>
+    <p>Every few weeks, go to <span class="ui">Settings</span> → <span class="ui">Full backup (JSON)</span>. On a phone this opens the share sheet, where you can choose <b>Save to Files</b> or send it to yourself.</p></details>
+</section>
+
+<section class="card">
+  <h2 style="margin-bottom:6px">If something goes wrong</h2>
+  <details><summary>The publish command says the database doesn't exist</summary>
+    <p>Step 3 wasn't finished. Create the Firestore database, then run the publish command again.</p></details>
+  <details><summary>"Failed to get Firebase project" or "project not found"</summary>
+    <p>The project ID in the command doesn't match. Copy it exactly from <span class="ui">Project settings</span>, which shows it in lower case with dashes.</p></details>
+  <details><summary>"'npx' is not recognized" (Windows) or "command not found" (Mac)</summary>
+    <p>Node.js isn't installed yet, or the command window was already open while it installed. Finish step 5, close the command window and open a new one.</p></details>
+  <details><summary>The tracker says "…can't open this tracker yet" after signing in</summary>
+    <p>The database rules weren't published, so Firebase is still using its locked default rules. Run the publish command from step 6 again and check that it finishes without errors, then sign in again.</p></details>
+  <details><summary>Sign-in says Google sign-in isn't switched on</summary>
+    <p>Repeat step 2 and make sure you clicked <span class="ui">Save</span>.</p></details>
+  <details><summary>Nothing happens when tapping "Sign in with Google"</summary>
+    <p>The link was probably opened inside another app, such as Instagram. Open it in Chrome or Safari instead. On iPhone, if the home-screen icon doesn't finish signing in, use the tracker in Safari.</p></details>
+</section>
+
+<p class="muted" style="font-size:14px;text-align:center;margin-top:24px">Firebase's free Spark plan includes 1 GiB of database storage and 50,000 reads a day, far more than a small group logging workouts will use.</p>
+</div>
+<script>
+(function () {
+  var input = document.getElementById('pid');
+  function apply() {
+    var v = (input.value || '').trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+    document.querySelectorAll('.pidv').forEach(function (el, i) {
+      el.textContent = v || (el.closest('#deploy') ? 'YOUR-PROJECT-ID' : 'your-project-id');
+    });
+    try { localStorage.setItem('hx.setup.pid', v); } catch (e) { }
+  }
+  try { input.value = localStorage.getItem('hx.setup.pid') || ''; } catch (e) { }
+  if (!input.value) input.value = 'hyrox-tracker-6c078';
+  input.addEventListener('input', apply); apply();
+  document.querySelectorAll('[data-copy]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var t = b.previousElementSibling.textContent;
+      function done() { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1500); }
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, function () { fallback(t); done(); });
+      else { fallback(t); done(); }
+    });
+  });
+  function fallback(t) { var a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); } catch (e) { } a.remove(); }
+})();
+</script>
+</body>
+</html>
