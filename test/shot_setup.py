@@ -1,0 +1,11 @@
+src = open('test/run_roles.py').read().split('with sync_playwright() as pw:')[0].replace('PORT = 8791', 'PORT = 8793')
+exec(src)
+with sync_playwright() as pw:
+    b = pw.chromium.launch()
+    p = open_as(b, 'priya@test.com', {})
+    p.fill('#nf-name', 'Priya'); p.click('[data-a=nf-fmt][data-v=doubles]'); p.click('[data-a=nf-div][data-v=X]'); p.click('[data-a=nf-sex][data-v=W]'); p.wait_for_timeout(200)
+    panel = p.locator('#sheet .panel')
+    p.evaluate("document.querySelector('#sheet .panel').scrollTop = 250"); p.wait_for_timeout(100)
+    panel.screenshot(path='test/shots/r8-setup-panel.png')
+    b.close()
+srv.shutdown()
