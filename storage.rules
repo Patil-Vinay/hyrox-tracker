@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // PHOTOS
-// - Anyone signed in to the tracker can view photos.
+// - Only the tracker's members (same lists as firestore.rules, by Firebase account ID) can view or add photos.
 // - People can only add or delete photos in their own folder (photos/<their account id>/...).
 // - Admins (same list as firestore.rules) can add or delete anyone's.
 // - Images only, up to 25 MB each (full-quality phone photos are usually 2–8 MB).
@@ -9,23 +9,29 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
+    // Keep these two lists the same as in firestore.rules.
     function admins() {
-      return ['admin@example.com'];
+      return ['z9QkdQBbIZZqS5wLB4Lw1dXEp083'];                                        // admin account
+    }
+    function members() {
+      return ['z9QkdQBbIZZqS5wLB4Lw1dXEp083', 'kXbaqmi3NGhmMoKHqRUGH3WWKJO2', '3b1ZotTGWtbaLUN1dFArqyUQCGC3'];  // admin, User 1, User 2
+    }
+
+    function isMember() {
+      return request.auth != null && request.auth.uid in members();
     }
 
     function isAdmin() {
-      return request.auth != null
-        && request.auth.token.email_verified == true
-        && request.auth.token.email.lower() in admins();
+      return isMember() && request.auth.uid in admins();
     }
 
     match /photos/{uid}/{file} {
-      allow read: if request.auth != null;
-      allow create, update: if request.auth != null
+      allow read: if isMember();
+      allow create, update: if isMember()
         && (request.auth.uid == uid || isAdmin())
         && request.resource.size < 25 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
-      allow delete: if request.auth != null && (request.auth.uid == uid || isAdmin());
+      allow delete: if isMember() && (request.auth.uid == uid || isAdmin());
     }
   }
 }

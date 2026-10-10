@@ -42,6 +42,7 @@ function saveOutbox() { LS.set(OUTBOX_KEY, Array.from(pending.values())); }
 
 /* ---- writes: optimistic local update, queued, retried ---- */
 function put(col, id, data) {
+  if (S.demo) return demoPut(col, id, data);
   if (S.readOnly) { toast(S.user ? "This Google account can't save to the tracker." : 'Sign in with Google to save.'); return false; }
   if (S.user && !canWriteDoc(col, id)) { toast(col === 'plan_days' ? PT_NO : PLAN_COLS.includes(col) ? 'Only the admin can change the plan.' : 'You can only change your own profile and logs.'); return false; }
   data = Object.assign({}, data, { _u: Date.now() });
@@ -53,6 +54,7 @@ function put(col, id, data) {
 }
 function del(col, id) {
   delete S[COLS[col]][id];
+  if (S.demo) return;
   pending.set(col + '/' + id, { col, id, data: null });
   saveOutbox(); saveCache(); setSync('saving'); scheduleFlush();
 }
@@ -103,7 +105,7 @@ function setSync(s) {
   S.sync = s;
   const el = $('#sync'); if (!el) return;
   el.dataset.s = s;
-  el.lastChild.textContent = s === 'saving' ? 'Saving…' : s === 'offline' ? 'Offline · ' + pending.size + ' to sync' : s === 'ro' ? 'View only' : s === 'local' ? 'Not connected' : s === 'out' ? 'Signed out' : 'Saved';
+  el.lastChild.textContent = s === 'saving' ? 'Saving…' : s === 'offline' ? 'Offline · ' + pending.size + ' to sync' : s === 'ro' ? 'View only' : s === 'local' ? 'Not connected' : s === 'out' ? 'Signed out' : s === 'demo' ? 'Demo · not saved' : 'Saved';
 }
 
 /* ---- subscriptions ---- */
@@ -144,9 +146,10 @@ function onDenied() {
   showGate('denied');
 }
 /* ---- one Google account = one profile (the profile id is the account's uid) ----
-   Everyone can see everyone's data; people change only their own. Admins (config.js + firestore.rules) can change anything. */
-const ADMINS = (window.TRACKER_ADMINS || []).map(e => String(e).trim().toLowerCase());
-const isAdmin = () => !!(S.user && S.email && ADMINS.includes(String(S.email).toLowerCase()));
+   Everyone can see everyone's data; people change only their own. Admins (config.js + firestore.rules) can change anything.
+   TRACKER_ADMINS holds account ids (uids); an email there still works too. */
+const ADMINS = (window.TRACKER_ADMINS || []).map(e => String(e).trim());
+const isAdmin = () => !!(S.user && !S.demo && (ADMINS.includes(S.uid) || (S.email && ADMINS.some(a => a.toLowerCase() === String(S.email).toLowerCase()))));
 const isPerson = id => !!(S.profiles[id] && S.profiles[id].uid === id);
 const ownProfile = () => !!(S.uid && S.profiles[S.uid] && !S.profiles[S.uid].removed);
 const adminOnly = () => isAdmin() && !ownProfile(); // an admin account that doesn't train

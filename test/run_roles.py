@@ -165,7 +165,7 @@ with sync_playwright() as pw:
 
     # 6. Rules not published yet -> clear message
     l = open_as(b, 'uday@test.com', {}, locked=True)
-    check('locked database shows the publish hint', "can't open this tracker yet" in l.inner_text('#gate'))
+    check('refused account is told the tracker is private', 'This tracker is private' in l.inner_text('#gate') and l.locator('#gate [data-a=demo]').count() == 1)
 
     # 7. Admin in config.js but missing from firestore.rules -> change dropped with a message, app keeps working
     x = open_as(b, 'uday@test.com', db, app_admins=('uday@test.com',), rule_admins=('admin@test.com',))

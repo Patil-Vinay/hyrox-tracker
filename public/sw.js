@@ -1,5 +1,5 @@
 /* Lets the tracker open on bad gym Wi-Fi: always tries the network first, falls back to the last saved copy. */
-const CACHE = 'hyrox-tracker-v36';
+const CACHE = 'hyrox-tracker-v37';
 const CORE = ['./', 'index.html', 'app.js', 'plan-data.js', 'firebase-sdk.js', 'config.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {

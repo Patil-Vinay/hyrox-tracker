@@ -22,6 +22,7 @@ function makeThumb(file) {
   });
 }
 async function addPhotos(date, files) {
+  if (S.demo) { toast('Photos are turned off in the demo.'); return; }
   if (!S.pid || !window.FBX || !FBX.storage) return;
   const pid = S.pid, lid = logKey(pid, date);
   if (!canWriteDoc('logs', lid)) { toast('You can only add photos to your own log.'); return; }

@@ -1,7 +1,12 @@
 rules_version = '2';
 
 // WHO CAN DO WHAT
-// - Anyone who signs in with a Google account can open the tracker and SEE everyone's plan, profiles and logs.
+// - The tracker is private: only the accounts in members() can open it. Anyone else who signs in with Google
+//   is refused everything (they can still use "Look around", which runs on sample data in their browser).
+// - Accounts are listed by their Firebase account ID (UID), not their email, so no email address is in this repo.
+//   Find a UID in Firebase console -> Authentication -> Users (the "User UID" column). An account shows up there
+//   after it has tried to sign in once.
+// - Members can SEE everyone's plan, profiles and logs.
 // - Each person can only CHANGE their own profile and logs (one Google account = one profile).
 // - Admins (listed below) can change anyone's profile and logs, remove members and edit the plan.
 // - v32: anyone with a profile can change a day of the shared plan (plan_days): add an exercise, change its sets,
@@ -10,23 +15,27 @@ rules_version = '2';
 //   changed only by that person (or an admin).
 // - Training together: a person's log for one day may also be changed by someone in the same group that day
 //   (see togetherAllows below), unless they left the group or switched off "Others can add me".
-// To add another admin: add their Gmail below AND to TRACKER_ADMINS in public/config.js, then deploy again.
+// To add someone: add their UID to members() here AND in storage.rules, then deploy the rules again.
+// To add an admin: also add their UID to admins() here, in storage.rules and in TRACKER_ADMINS in public/config.js.
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Keep these two lists the same as in storage.rules.
     function admins() {
-      return ['admin@example.com'];
+      return ['z9QkdQBbIZZqS5wLB4Lw1dXEp083'];                                        // admin account
+    }
+    function members() {
+      return ['z9QkdQBbIZZqS5wLB4Lw1dXEp083', 'kXbaqmi3NGhmMoKHqRUGH3WWKJO2', '3b1ZotTGWtbaLUN1dFArqyUQCGC3'];  // admin, User 1, User 2
     }
 
+    // Signed in AND one of the members. Every rule below starts from this, so nobody else can read or write anything.
     function signedIn() {
-      return request.auth != null;
+      return request.auth != null && request.auth.uid in members();
     }
 
     function isAdmin() {
-      return signedIn()
-        && request.auth.token.email_verified == true
-        && request.auth.token.email.lower() in admins();
+      return signedIn() && request.auth.uid in admins();
     }
 
     function isTrackerCollection(col) {

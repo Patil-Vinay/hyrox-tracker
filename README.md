@@ -38,7 +38,8 @@ The screenshots use sample data: two and a half weeks of logged training on a te
 - HYROX guide: every format and division with weights and the rulebook links.
 - Training together: start a session with a training partner and everything you tick fills in their log too.
 - Share card: a story or square image of a finished day.
-- An admin account can edit anyone's log and the plan. Everyone signed in can see everyone's training.
+- Private: only the member accounts listed in the Firebase rules can open it. An admin account can edit anyone's log and the plan; members see everyone's training.
+- Look around: visitors can try the whole app on sample data (the button under Sign in, or `?demo`). It never touches Firebase and saves nothing.
 - Classic and Colourful looks, light and dark, five text colours (all checked for contrast by `colours.py`).
 - CSV export.
 
@@ -77,10 +78,10 @@ Progress: race-time predictor and target splits
 Plain JavaScript with no framework. Everything shares one global scope.
 
 ```
-src/              the app, split by area (01-utilities.js ... 28-sign-in.js)
+src/              the app, split by area (01-utilities.js ... 29-sign-in.js)
 build_app.py      joins src/*.js in name order into public/app.js
 public/           what gets deployed: index.html (markup and CSS), app.js, plan-data.js,
-                  config.js (admin list), firebase-sdk.js, sw.js (offline cache), icons
+                  config.js (admin account ids), firebase-sdk.js, sw.js (offline cache), icons
 build/            the Firebase wrapper, bundled into public/firebase-sdk.js with esbuild
 firestore.rules   who can read and write what
 storage.rules     photo uploads
@@ -112,7 +113,7 @@ npx esbuild fbx-entry.js --bundle --minify --format=iife --target=es2019 --outfi
 
 Firestore collections: `profiles`, `logs`, `bench` (test results), `weekly`, `niggles`, `plan_days`, `plan_weeks`, `plan_meta`, `together`, `body` and `myex`. Every document is `{ j: JSON.stringify(data) }`. A log's id is `<uid>_<date>`. Photos go to Cloud Storage at `photos/<uid>/<date>_...`, the original plus a small `_t.jpg` preview.
 
-Everyone signed in can read. You write your own documents and the admin (in `public/config.js`, `firestore.rules` and `storage.rules`, keep all three the same) can write anyone's.
+Only members can read: `members()` in `firestore.rules` and `storage.rules` lists their Firebase account ids (UIDs), so no email address is in the repo. You write your own documents and the admin (`admins()` in both rules files and `TRACKER_ADMINS` in `public/config.js`, keep all three the same) can write anyone's.
 
 ## Tests
 

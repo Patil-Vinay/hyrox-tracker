@@ -1,9 +1,10 @@
 /*
-  ADMINS: these Google accounts can change anyone's profile and logs, remove members and edit the plan.
-  Everyone else can see everything but only change their own profile and logs.
-  Keep this list the same as admins() in firestore.rules (Firebase enforces that one).
+  ADMINS: these accounts can change anyone's profile and logs, remove members and edit the plan.
+  Members can see everything but only change their own profile and logs.
+  Listed by Firebase account ID (UID), not email. Keep this the same as admins() in firestore.rules and
+  storage.rules: those are what Firebase enforces, this list only decides which buttons the app shows.
 */
-window.TRACKER_ADMINS = ['admin@example.com'];
+window.TRACKER_ADMINS = ['z9QkdQBbIZZqS5wLB4Lw1dXEp083'];
 
 /*
   You don't need to change this file if you publish the tracker with Firebase Hosting

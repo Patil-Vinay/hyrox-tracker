@@ -9,7 +9,9 @@
   let user = null, authCb = null;
   window.__DB = DB; window.__WRITES = []; window.__REFUSED = [];
   const uidOf = email => 'u' + email.split('@')[0].replace(/[^a-z0-9]/gi, '');
-  const isAdmin = () => !!user && admins.includes(user.email.toLowerCase());
+  const members = window.__RULE_MEMBERS || null; // like members() in the rules (uids); null = any signed-in account
+  const member = () => !!user && (!members || members.includes(user.uid));
+  const isAdmin = () => member() && (admins.includes(user.email.toLowerCase()) || admins.includes(user.uid));
   const owns = (col, id) => !!user && ((['profiles', 'bench', 'niggles', 'body', 'myex'].includes(col) && id === user.uid) || (['logs', 'weekly', 'together'].includes(col) && id.split('_')[0] === user.uid));
   const memberPlanDay = col => !!user && col === 'plan_days' && !!(DB.profiles || {})[user.uid]; // v32, like firestore.rules
   const togetherAllows = (col, id) => { // like firestore.rules
@@ -30,15 +32,15 @@
       return new Promise((resolve, reject) => {
         if (window.__NO_STORAGE) return setTimeout(() => reject({ code: 'storage/unknown' }), 20);
         const m = path.match(/^photos\/([^/]+)\/[^/]+$/);
-        if (!user || !m || !(m[1] === user.uid || isAdmin()) || blob.size >= 25 * 1024 * 1024 || !/^image\//.test(type)) return setTimeout(() => reject({ code: 'storage/unauthorized' }), 20);
+        if (!member() || !m || !(m[1] === user.uid || isAdmin()) || blob.size >= 25 * 1024 * 1024 || !/^image\//.test(type)) return setTimeout(() => reject({ code: 'storage/unauthorized' }), 20);
         let k = 0; const tick = () => { k += 25; onProgress && onProgress(Math.min(k, 100) * blob.size / 100, blob.size); if (k < 100) setTimeout(tick, 15); else { OBJ[path] = { size: blob.size, type }; resolve({ url: URL.createObjectURL(blob) }); } }; tick();
       });
     },
-    async remove(path) { const m = path.match(/^photos\/([^/]+)\//); if (!user || !m || !(m[1] === user.uid || isAdmin())) throw { code: 'storage/unauthorized' }; delete OBJ[path]; }
+    async remove(path) { const m = path.match(/^photos\/([^/]+)\//); if (!member() || !m || !(m[1] === user.uid || isAdmin())) throw { code: 'storage/unauthorized' }; delete OBJ[path]; }
   };
   window.FBX = {
     storage,
-    init() { return true; },
+    init() { window.__FB_STARTED = true; return true; },
     onAuth(cb) { authCb = cb; setTimeout(() => cb(user), 30); return () => { }; },
     async signIn() {
       const email = window.__SIGNIN_AS || 'admin@test.com';
@@ -51,7 +53,7 @@
       collection(col) {
         return {
           onSnapshot(next, err) {
-            if (!user || locked) { setTimeout(() => err({ code: 'permission-denied' }), 20); return () => { }; }
+            if (!member() || locked) { setTimeout(() => err({ code: 'permission-denied' }), 20); return () => { }; }
             const s = { next }; (subs[col] = subs[col] || []).push(s);
             if (window.__CACHE_FIRST) setTimeout(() => next({ fromCache: true, docs: [] }), 10); // what Firestore's offline cache gives first
             setTimeout(() => next(snap(col)), 25);
@@ -62,7 +64,7 @@
               async set(data) {
                 if (window.__OFFLINE) return new Promise(() => { }); // never acknowledged, like Firestore offline
                 const shapeOk = col === 'together' ? Object.keys(data).every(k => ['j', 'allow', 'g', 'in', 'group'].includes(k)) && typeof data.j === 'string' && Array.isArray(data.allow) && data.allow.length <= 30 && typeof data.g === 'string' && typeof data.in === 'boolean' && Array.isArray(data.group) && data.group.length <= 30 : Object.keys(data).length === 1 && typeof data.j === 'string';
-                if (locked || !user || !shapeOk || !(isAdmin() || owns(col, id) || togetherAllows(col, id) || memberPlanDay(col))) { window.__REFUSED.push(col + '/' + id); throw { code: 'permission-denied' }; }
+                if (locked || !member() || !shapeOk || !(isAdmin() || owns(col, id) || togetherAllows(col, id) || memberPlanDay(col))) { window.__REFUSED.push(col + '/' + id); throw { code: 'permission-denied' }; }
                 DB[col] = DB[col] || {}; DB[col][id] = JSON.parse(JSON.stringify(data)); window.__WRITES.push(col + '/' + id); notify(col);
               },
               async delete() { if (!isAdmin()) throw { code: 'permission-denied' }; delete (DB[col] || {})[id]; notify(col); }

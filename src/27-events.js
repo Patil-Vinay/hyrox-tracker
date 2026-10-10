@@ -66,6 +66,7 @@ const ACT = {
   'rc-sex': el => { editProfile(p => { p.race = Object.assign({}, p.race, { sex: el.dataset.v }); }); render(); },
   signin: () => startSignIn(),
   signout: () => doSignOut(),
+  demo: () => { location.href = location.pathname + '?demo'; },
   tool: el => { const t = el.dataset.t; const o = {}; if (el.dataset.mode) o.mode = el.dataset.mode; openSheet(t, o); },
   'edit-plan': el => { if (!canEditPlan()) { toast(PT_NO); return; } ED = null; openSheet('editor', { date: el.dataset.d, focus: el.dataset.f }); if (el.dataset.f === 'add-ex') setTimeout(() => { const n = ED ? ED.ex.length - 1 : -1; const i = $('#ed-ex-' + n + '-name'); if (i) { i.scrollIntoView({ block: 'center' }); i.focus(); } }, 60); },
   'ed-add': el => { const g = el.dataset.g; if (!ED) return; if (g === 'ex') ED.ex.push({ name: '', sets: '3', reps: '10', load: '', rest: '90 s' }); else ED[g].push(''); renderSheet(); const n = ED[g].length - 1; const i = $('#ed-' + g + '-' + n + '-' + (g === 'ex' ? 'name' : 't')); if (i) { i.scrollIntoView({ block: 'center' }); i.focus(); } },

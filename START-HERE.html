@@ -199,9 +199,9 @@ summary{cursor:pointer;font-weight:650;min-height:32px}
 <section class="card">
   <h2 style="margin-bottom:6px">Later on</h2>
   <details><summary>Adding someone else</summary>
-    <p>Just send them the link. They sign in with Google and set up their profile once. One Google account is one profile.</p></details>
+    <p>The tracker is private. Ask them to open the link and sign in once (they'll see "This tracker is private"). Then in Firebase console → <span class="ui">Authentication</span> → <span class="ui">Users</span>, copy their <b>User UID</b> and add it to <code class="inline">members()</code> in both <code class="inline">firestore.rules</code> and <code class="inline">storage.rules</code>. Run the publish command from step 6 again; next time they sign in they set up their profile. One Google account is one profile.</p></details>
   <details><summary>Making someone else an admin</summary>
-    <p>Add their Gmail address in two places: the <code class="inline">admins()</code> list in <code class="inline">firestore.rules</code> and <code class="inline">TRACKER_ADMINS</code> in <code class="inline">public/config.js</code>. Then run the publish command from step 6 again.</p></details>
+    <p>Add their User UID (Firebase console → Authentication → Users) to <code class="inline">admins()</code> in <code class="inline">firestore.rules</code> and <code class="inline">storage.rules</code> as well as <code class="inline">TRACKER_ADMINS</code> in <code class="inline">public/config.js</code>. Then run the publish command from step 6 again.</p></details>
   <details><summary>Getting an updated version of the tracker</summary>
     <p>Replace the files in the <code class="inline">public</code> folder with the new ones and run the publish command from step 6 again. Your logs live in the database, so they aren't touched.</p></details>
   <details><summary>Keeping your own copy of the data</summary>

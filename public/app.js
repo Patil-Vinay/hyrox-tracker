@@ -219,6 +219,7 @@ function saveOutbox() { LS.set(OUTBOX_KEY, Array.from(pending.values())); }
 
 /* ---- writes: optimistic local update, queued, retried ---- */
 function put(col, id, data) {
+  if (S.demo) return demoPut(col, id, data);
   if (S.readOnly) { toast(S.user ? "This Google account can't save to the tracker." : 'Sign in with Google to save.'); return false; }
   if (S.user && !canWriteDoc(col, id)) { toast(col === 'plan_days' ? PT_NO : PLAN_COLS.includes(col) ? 'Only the admin can change the plan.' : 'You can only change your own profile and logs.'); return false; }
   data = Object.assign({}, data, { _u: Date.now() });
@@ -230,6 +231,7 @@ function put(col, id, data) {
 }
 function del(col, id) {
   delete S[COLS[col]][id];
+  if (S.demo) return;
   pending.set(col + '/' + id, { col, id, data: null });
   saveOutbox(); saveCache(); setSync('saving'); scheduleFlush();
 }
@@ -280,7 +282,7 @@ function setSync(s) {
   S.sync = s;
   const el = $('#sync'); if (!el) return;
   el.dataset.s = s;
-  el.lastChild.textContent = s === 'saving' ? 'Saving…' : s === 'offline' ? 'Offline · ' + pending.size + ' to sync' : s === 'ro' ? 'View only' : s === 'local' ? 'Not connected' : s === 'out' ? 'Signed out' : 'Saved';
+  el.lastChild.textContent = s === 'saving' ? 'Saving…' : s === 'offline' ? 'Offline · ' + pending.size + ' to sync' : s === 'ro' ? 'View only' : s === 'local' ? 'Not connected' : s === 'out' ? 'Signed out' : s === 'demo' ? 'Demo · not saved' : 'Saved';
 }
 
 /* ---- subscriptions ---- */
@@ -321,9 +323,10 @@ function onDenied() {
   showGate('denied');
 }
 /* ---- one Google account = one profile (the profile id is the account's uid) ----
-   Everyone can see everyone's data; people change only their own. Admins (config.js + firestore.rules) can change anything. */
-const ADMINS = (window.TRACKER_ADMINS || []).map(e => String(e).trim().toLowerCase());
-const isAdmin = () => !!(S.user && S.email && ADMINS.includes(String(S.email).toLowerCase()));
+   Everyone can see everyone's data; people change only their own. Admins (config.js + firestore.rules) can change anything.
+   TRACKER_ADMINS holds account ids (uids); an email there still works too. */
+const ADMINS = (window.TRACKER_ADMINS || []).map(e => String(e).trim());
+const isAdmin = () => !!(S.user && !S.demo && (ADMINS.includes(S.uid) || (S.email && ADMINS.some(a => a.toLowerCase() === String(S.email).toLowerCase()))));
 const isPerson = id => !!(S.profiles[id] && S.profiles[id].uid === id);
 const ownProfile = () => !!(S.uid && S.profiles[S.uid] && !S.profiles[S.uid].removed);
 const adminOnly = () => isAdmin() && !ownProfile(); // an admin account that doesn't train
@@ -1733,6 +1736,7 @@ function makeThumb(file) {
   });
 }
 async function addPhotos(date, files) {
+  if (S.demo) { toast('Photos are turned off in the demo.'); return; }
   if (!S.pid || !window.FBX || !FBX.storage) return;
   const pid = S.pid, lid = logKey(pid, date);
   if (!canWriteDoc('logs', lid)) { toast('You can only add photos to your own log.'); return; }
@@ -2623,7 +2627,7 @@ function slSave() {
 }
 
 /* ================= Settings & data ================= */
-const APP_VERSION = 'v36';
+const APP_VERSION = 'v37';
 function appInfo() { // version and how much this device keeps, to check an update arrived
   let n = 0; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); n += k.length + (localStorage.getItem(k) || '').length; } } catch (e) { }
   return '<p class="small muted" id="app-ver" style="text-align:center;margin-top:18px">HYROX Training Tracker ' + APP_VERSION + ' · saved on this device: ' + Math.max(1, Math.round(n * 2 / 1024)) + ' KB' + (LS.failed ? '<br>This device’s storage for the app was full, so the offline copy was cleared to make room.' : '') + '</p>';
@@ -2642,7 +2646,7 @@ function viewSettings() {
   const removed = Object.keys(S.profiles).filter(id => isPerson(id) && S.profiles[id].removed);
   const people = '<section class="card"><div class="card-h"><h3>Members</h3><span class="sp"></span>' + (isAdmin() ? '<span class="pill">You\'re the admin</span>' : '') + '</div><div class="stack">' + peopleIds().map(pid => '<div class="row" style="flex-wrap:nowrap"><span class="dot" style="--pc:' + pcolor(pid) + '"></span><span style="flex:1;min-width:0"><b>' + esc(pname(pid)) + '</b><br><span class="small muted">' + (raceOf(pid) ? esc(raceLabel(raceOf(pid))) + ' · ' : '') + 'Plan ' + planOf(pid) + (pid === S.uid ? ' · you' : '') + '</span></span>' + (isAdmin() ? '<button class="btn sm" data-a="mem-edit" data-v="' + pid + '">Edit</button>' : '') + '</div>').join('') + '</div>' +
     (removed.length && isAdmin() ? '<details style="margin-top:8px"><summary class="small">Removed members (' + removed.length + ')</summary>' + removed.map(pid => '<div class="row"><span class="small" style="flex:1">' + esc(S.profiles[pid].name) + '</span><button class="btn sm" data-a="mem-restore" data-v="' + pid + '">Restore</button></div>').join('') + '</details>' : '') +
-    '<p class="small muted" style="margin-top:10px">Everyone follows the same plan with their own log. To add someone, send them the link: they sign in with Google and set up their profile once. Everyone can see everyone\'s logs, but only ' + (isAdmin() ? 'you, as admin,' : 'the admin') + ' can change other people\'s logs or the plan.</p></section>';
+    '<p class="small muted" style="margin-top:10px">Everyone follows the same plan with their own log. The tracker is private: only the accounts listed in the Firebase rules can open it. Each sets up a profile once. Everyone can see everyone\'s logs, but only ' + (isAdmin() ? 'you, as admin,' : 'the admin') + ' can change other people\'s logs or the plan.</p></section>';
   const look = '<section class="card"><div class="card-h"><h3>Display</h3></div><div class="stack"><div class="field"><span>Theme</span><div class="seg">' + [['system', 'Automatic'], ['light', 'Light'], ['dark', 'Dark']].map(t => '<button data-a="theme" data-v="' + t[0] + '" aria-pressed="' + (theme === t[0]) + '">' + t[1] + '</button>').join('') + '</div></div>' +
     '<div class="field"><span>Colours</span><div class="seg">' + [['classic', 'Classic'], ['colourful', 'Colourful']].map(t => '<button data-a="look-style" data-v="' + t[0] + '" aria-pressed="' + (lookStyle === t[0]) + '">' + t[1] + '</button>').join('') + '</div></div>' +
     '<div class="field"><span>Text colour</span><div class="seg inkseg">' + INK_NAMES.map(t => '<button data-a="look-ink" data-v="' + t[0] + '" aria-pressed="' + (lookInk === t[0]) + '"><i class="inkdot" style="--dot:var(--inkp-' + t[0] + ')"></i>' + t[1] + '</button>').join('') + '</div></div>' +
@@ -2655,7 +2659,7 @@ function viewSettings() {
     (S.dl ? '<div class="toolgrid"><button class="toolbtn" data-a="csv" data-v="sessions">Sessions (CSV)</button><button class="toolbtn" data-a="csv" data-v="detail">Sets, runs &amp; stations (CSV)</button><button class="toolbtn" data-a="dl-week" data-n="' + currentWeekN() + '">This week, printable</button><button class="toolbtn" data-a="backup">Full backup (JSON)</button></div>' : '<p class="small muted">File downloads aren\'t available in this view.</p>') +
     (!isAdmin() ? '' : '<div class="row" style="margin-top:10px"><label class="btn sm">Restore from backup<input type="file" accept=".json,application/json" id="restore-file" data-in="restore" hidden></label><span class="small muted">Replaces documents with the ones in the file.</span></div><div id="restore-box">' + restoreBoxHTML() + '</div>') +
     '<p class="small muted" style="margin-top:10px">Logs are saved to Firebase as you type. On weak gym Wi-Fi, changes wait on this device and sync when the connection returns.</p>' +
-    (S.user ? '<div class="row" style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px"><span class="small" style="flex:1;min-width:0;overflow-wrap:anywhere">Signed in as <b>' + esc(S.email || S.viewerName) + '</b></span><button class="btn sm" data-a="signout">Sign out</button></div>' : '') + '</section>';
+    (S.demo ? '<div class="row" style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px"><span class="small" style="flex:1;min-width:0">You’re looking around with sample data. Nothing you change is saved.</span><button class="btn sm" data-a="signout">Leave demo</button></div>' : S.user ? '<div class="row" style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px"><span class="small" style="flex:1;min-width:0;overflow-wrap:anywhere">Signed in as <b>' + esc(S.email || S.viewerName) + '</b></span><button class="btn sm" data-a="signout">Sign out</button></div>' : '') + '</section>';
   return '<h2 class="disp" style="font-size:34px;text-transform:uppercase">Settings</h2><div class="grid2"><div class="stack" style="gap:14px">' + you + nutSettingsCard() + tgPrefsCard() + '</div><div class="stack" style="gap:14px">' + look + people + plan + '</div></div>' + data + appInfo();
 }
 const INK_NAMES = [['default', 'Default'], ['blue', 'Navy'], ['green', 'Green'], ['purple', 'Purple'], ['brown', 'Brown']];
@@ -5381,6 +5385,7 @@ const ACT = {
   'rc-sex': el => { editProfile(p => { p.race = Object.assign({}, p.race, { sex: el.dataset.v }); }); render(); },
   signin: () => startSignIn(),
   signout: () => doSignOut(),
+  demo: () => { location.href = location.pathname + '?demo'; },
   tool: el => { const t = el.dataset.t; const o = {}; if (el.dataset.mode) o.mode = el.dataset.mode; openSheet(t, o); },
   'edit-plan': el => { if (!canEditPlan()) { toast(PT_NO); return; } ED = null; openSheet('editor', { date: el.dataset.d, focus: el.dataset.f }); if (el.dataset.f === 'add-ex') setTimeout(() => { const n = ED ? ED.ex.length - 1 : -1; const i = $('#ed-ex-' + n + '-name'); if (i) { i.scrollIntoView({ block: 'center' }); i.focus(); } }, 60); },
   'ed-add': el => { const g = el.dataset.g; if (!ED) return; if (g === 'ex') ED.ex.push({ name: '', sets: '3', reps: '10', load: '', rest: '90 s' }); else ED[g].push(''); renderSheet(); const n = ED[g].length - 1; const i = $('#ed-' + g + '-' + n + '-' + (g === 'ex' ? 'name' : 't')); if (i) { i.scrollIntoView({ block: 'center' }); i.focus(); } },
@@ -5607,6 +5612,75 @@ S.dl = {
   }
 };
 
+/* ---------- "Look around": the tracker with sample data, for visitors who aren't members ----------
+   Opened from the sign-in screen (or any link ending in ?demo). Firebase is never started: nothing is read from the
+   real tracker, nothing is saved to it and nothing is written to this device's cache. Changes stay in memory only,
+   so a reload starts the demo afresh. Two made-up people, Alex (you) and Sam, have logged the plan up to yesterday. */
+const DEMO = /[?&]demo\b/.test(location.search);
+const DEMO_ME = 'demo-alex', DEMO_PAL = 'demo-sam';
+
+function demoRand(seed) { let s = seed >>> 0; return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; }; }
+const DEMO_NOTES = ['Felt strong today.', 'Legs heavy from yesterday, kept it easy.', 'Good session, sleep helped.', 'Hot gym, drank lots of water.', 'Pace felt easier than last week.'];
+
+function demoLog(pid, date, form, R) {
+  const p = P(date); if (!p) return null;
+  if (p.rest) {
+    if (R() < 0.35) return null;
+    const l = { pid, date, rest: { acts: [R() < 0.5 ? 'walk' : 'stretch'], min: 20 + Math.round(R() * 25) } };
+    if (R() < 0.3) l.notes = 'Easy recovery day.';
+    return l;
+  }
+  const r = R();
+  if (r < 0.06) return null; // the odd missed day
+  if (r < 0.1) return { pid, date, status: 'skipped', notes: 'Work ran late.' };
+  const modified = r < 0.22;
+  const l = { pid, date, status: modified ? 'modified' : 'complete', time: Math.round((p.planMin || 60) * (0.85 + R() * 0.3)) };
+  const want = p.rpeHi || 6; l.rpe = Math.max(2, Math.min(10, want + (R() < 0.3 ? 1 : 0) - (R() < 0.2 ? 1 : 0)));
+  ['wu', 'cd'].forEach(g => { const on = {}; listItems(p, g).forEach((it, i) => { if (!it.h && R() < 0.92) on[i] = true; }); l[g] = on; });
+  if (p.strength.length) {
+    l.str = {};
+    p.strength.forEach((x, i) => {
+      const w = x.load ? Math.max(0, Math.round(x.load * form / 2.5) * 2.5) : 0;
+      const n = Math.max(1, (x.sets || 1) - (modified && R() < 0.5 ? 1 : 0));
+      l.str[i] = { s: Array.from({ length: n }, () => ({ r: x.reps || 10, w, d: true })) };
+    });
+  }
+  if (!p.run.none && p.day.km) {
+    const dist = Math.round(p.day.km * (0.9 + R() * 0.15) * 100) / 100;
+    const pace = p.run.pace ? (p.run.pace.lo + p.run.pace.hi) / 2 : 390;
+    l.runs = [{ type: p.run.type, dist, time: Math.round(dist * pace * (2 - form) * (0.97 + R() * 0.06)), rpe: l.rpe }];
+  }
+  const hrows = p.hyrox.rows.filter(x => x.kind !== 'note');
+  if (hrows.length) { l.hx = {}; hrows.forEach(x => { if (R() < 0.9) l.hx[x.i] = { d: true }; }); }
+  if (R() < 0.45) l.notes = DEMO_NOTES[Math.floor(R() * DEMO_NOTES.length)];
+  return l;
+}
+function demoLogs(pid, form, seed) {
+  const R = demoRand(seed), out = {}, t = todayISO();
+  S.order.filter(d => d < t).forEach(d => { const l = demoLog(pid, d, form, R); if (l) out[logKey(pid, d)] = l; });
+  return out;
+}
+
+function startDemo() {
+  S.demo = true; S.noDb = false; S.readOnly = false; S.denied = false;
+  for (const col of Object.keys(COLS)) S[COLS[col]] = PLAN_COLS.includes(col) ? withDefaults(col, {}) : {};
+  rebuildDerived();
+  S.uid = DEMO_ME; S.email = ''; S.viewerName = 'Visitor';
+  S.user = { uid: DEMO_ME, email: '', name: 'Visitor', demo: true };
+  const start = S.order[0] || todayISO();
+  S.profiles[DEMO_ME] = { uid: DEMO_ME, name: 'Alex', color: 'blue', plan: 'A', race: { fmt: 'singles', div: 'M' }, bar: 20, created: start + 'T1' };
+  S.profiles[DEMO_PAL] = { uid: DEMO_PAL, name: 'Sam', color: 'orange', plan: 'A', race: { fmt: 'singles', div: 'W' }, bar: 20, created: start + 'T2' };
+  Object.assign(S.logs, demoLogs(DEMO_ME, 1, 7), demoLogs(DEMO_PAL, 0.8, 11));
+  Object.keys(COLS).forEach(c => { S.loaded[c] = true; });
+  S.pid = DEMO_ME;
+  showGate(null); setSync('demo'); render();
+  setTimeout(() => toast('You\'re looking around with sample data. Nothing you change is saved.'), 500);
+}
+function demoPut(col, id, data) { // in memory only: never Firebase, never this device's storage
+  S[COLS[col]][id] = Object.assign({}, data, { _u: Date.now() });
+  if (PLAN_COLS.includes(col)) rebuildDerived();
+  return true;
+}
 /* ---------- sign-in gate ---------- */
 function showGate(kind, extra) {
   const g = $('#gate'); if (!g) return;
@@ -5617,14 +5691,15 @@ function showGate(kind, extra) {
   if (kind === 'wait') body = '<p class="muted">Connecting…</p>';
   else if (kind === 'signin') body = '<p>Sign in with the Google account you use for the tracker.</p><button class="btn primary lg block" data-a="signin">' + GOOGLE_G + 'Sign in with Google</button>' +
     (extra ? '<div class="warnbox bad">' + esc(extra) + '</div>' : '') +
-    '<p class="small muted">Anyone you send the link to can sign in and join. If nothing happens when you tap the button, open this page in Chrome or Safari rather than inside another app.</p>';
-  else if (kind === 'denied') body = '<div class="warnbox bad"><div><b>' + esc(S.email || 'This account') + ' can\'t open this tracker yet.</b>The tracker\'s database rules haven\'t been published, so Firebase is refusing access. Run the publish command from the setup guide, then sign in again.</div></div>' +
-    '<button class="btn primary lg block" data-a="signout">Use another Google account</button>';
+    '<p class="small muted">This tracker is private: only its members can sign in. If nothing happens when you tap the button, open this page in Chrome or Safari rather than inside another app.</p>' + LOOK_AROUND;
+  else if (kind === 'denied') body = '<div class="warnbox bad"><div><b>This tracker is private.</b>' + esc(S.email || 'This account') + ' isn\'t one of its members, so it can\'t see or change anything. (If it should be, its account ID needs adding to the Firebase rules.)</div></div>' +
+    '<button class="btn primary lg block" data-a="signout">Use another Google account</button>' + LOOK_AROUND;
   else if (kind === 'setup') body = '<div class="warnbox"><div><b>Almost there: Firebase isn\'t connected yet.</b>This copy of the tracker couldn\'t find its Firebase settings. Deploy it with <span class="mono">firebase deploy</span> as described in the setup guide (START-HERE.html), or paste your web app config into <span class="mono">config.js</span>.</div></div>';
   else if (kind === 'error') body = '<div class="warnbox bad"><div><b>Couldn\'t start the tracker.</b>' + esc(extra || '') + '</div></div><button class="btn lg block" onclick="location.reload()">Try again</button>';
   g.innerHTML = '<div class="gate-card">' + brand + body + '</div>';
   g.hidden = false; document.body.classList.add('gated');
 }
+const LOOK_AROUND = '<div class="gate-or"><span>or</span></div><button class="btn lg block" data-a="demo">Look around</button><p class="small muted">See how the tracker works with sample data. Nothing is read from or saved to the real tracker.</p>';
 const GOOGLE_G = '<svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 38.2 44 33 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>';
 
 async function startSignIn() {
@@ -5637,6 +5712,7 @@ async function startSignIn() {
   }
 }
 async function doSignOut() {
+  if (S.demo) { location.href = location.pathname; return; } // leave the demo: nothing to save or clear
   if (pending.size && !S.denied) { toast(pending.size + ' change' + (pending.size > 1 ? 's haven\'t' : ' hasn\'t') + ' synced yet. Wait until it says Saved, then sign out.'); return; }
   unsubscribeAll(); S.db = null;
   LS.del(CACHE_KEY); LS.del(OUTBOX_KEY); LS.del('hx.pid'); pending.clear();
@@ -5659,6 +5735,7 @@ async function getConfig() {
 
 async function boot() {
   applyTheme();
+  if (DEMO) { startDemo(); return; } // sample data only: no cache, no Firebase
   loadCache();
   S.pid = resolveMe();
   setSync(pending.size ? 'offline' : 'saved');
